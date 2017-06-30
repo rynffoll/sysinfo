@@ -25,11 +25,12 @@ diskbar_bg_color=$pie_bg_color				# disk bar bg color
 
 chart_color="rgba(255,255,255,0.8)"			# CPU chart main color
 pie_fg_color="rgba(255,255,255,0.8)"			# pie foreground color
-pie_bg_color="rgba(0,0,0,0.3)"				# pie background color	
+pie_bg_color="rgba(0,0,0,0.3)"				# pie background color
 disk_partition_font_color="#ccc"			# font color of partition mountpoint
 diskbar_font="white"					# font color of disk used space
 diskbar_font_highlighted="#7eff35"			# font color of disk free space
 diskbar_bg_color=$pie_fg_color				# disk bar bg color
+
 
 
 ################################################################
@@ -48,29 +49,59 @@ if [ "$top_cpu" \> "$CPU" ]; then
 CPU=$(echo "$top_cpu"|awk '{ printf("%-4s", $1"%"); }')
 fi
 
-cpu_bar_height=$(echo $CPU | grep -o '[0-9]*') 
+cpu_bar_height=$(echo $CPU | grep -o '[0-9]*')
 
+################################################################
+#
+#  CPU Temp
+#
+################################################################
+cpu_temp=$(acpi -t | awk '{ print $4}' | sed 's/\.0//')
 
+NORM_TEMP="#fff9c4"
+MEDIUM_TEMP="#ffee58"
+HIGH_TEMP="#ffa000"
+CRIT_TEMP="#f4511e"
+
+cpu_temp_color=$NORM_TEMP
+
+if (($cpu_temp >= 60 && $cpu_temp < 70)); then
+    cpu_temp_color=$NORM_TEMP
+elif (($cpu_temp >= 70 && $cpu_temp < 80)); then
+    cpu_temp_color=$MEDIUM_TEMP
+elif (($cpu_temp >= 80 && $cpu_temp < 90)); then
+    cpu_temp_color=$HIGH_TEMP
+elif (($cpu_temp >= 90)); then
+    cpu_temp_color=$CRIT_TEMP
+fi
+
+chart_color=$cpu_temp_color
+
+function push_history {
+    local item=$1
+    local history_file=$2
+    touch "${history_file}"
+    local previous_history_file=$(tail -20 "${history_file}")
+    echo "${previous_history_file}" > "${history_file}"
+    echo "${item}" >> "${history_file}"
+}
 
 ########### cpu bar - uncomment this if you want to see bar and delete or comment out cpu graph part
 
-#cpu_icon=$(echo "<svg xmlns='http://www.w3.org/2000/svg' width='$hw' height='$hw' viewBox='0 0 120px 120px'><g transform='translate(0,120) scale(1, -1)'><rect rx='7px' y='10px' x='20px' height='100px' width='60px' fill='$pie_bg_color' /><rect rx='7px' y='10px' x='20px' height='$cpu_bar_height' width='60px' fill='$pie_fg_color' /></g></svg>" | base64 -w 0)
-
-
+# cpu_icon=$(echo "<svg xmlns='http://www.w3.org/2000/svg' width='$hw' height='$hw' viewBox='0 0 120px 120px'><g transform='translate(0,120) scale(1, -1)'><rect rx='7px' y='10px' x='20px' height='100px' width='60px' fill='$pie_bg_color' /><rect rx='7px' y='10px' x='20px' height='$cpu_bar_height' width='60px' fill='$pie_fg_color' /></g></svg>" | base64 -w 0)
 
 ########### cpu graph ################
 
-HISTORY_FILE="${HOME}/.cpu.history"
-touch "${HISTORY_FILE}"
-PREVIOUS=$(tail -20 "${HISTORY_FILE}")
-echo "$PREVIOUS" > "${HISTORY_FILE}"
-echo "$cpu_bar_height" >> "${HISTORY_FILE}"
+CPU_HISTORY_FILE="/tmp/argos-sysinfo-cpu.history"
+push_history "$cpu_bar_height" "${CPU_HISTORY_FILE}"
 
-CPU_GRAPH=$(cat $HISTORY_FILE | tr "\n" "\t" | awk '{print(100-$1,"L 5,"100-$2,"10,"100-$3,"15,"100-$4,"20,"100-$5,"25,"100-$6,"30,"100-$7,"35,"100-$8,"40,"100-$9,"45,"100-$10,"50,"100-$11,"55,"100-$12,"60,"100-$13,"65,"100-$14,"70,"100-$15,"75,"100-$16,"80,"100-$17,"85,"100-$18,"90,"100-$19,"95,"100-$20)}')
+CPU_GRAPH=$(cat $CPU_HISTORY_FILE | tr "\n" "\t" | awk '{print(100-$1,"L 5,"100-$2,"10,"100-$3,"15,"100-$4,"20,"100-$5,"25,"100-$6,"30,"100-$7,"35,"100-$8,"40,"100-$9,"45,"100-$10,"50,"100-$11,"55,"100-$12,"60,"100-$13,"65,"100-$14,"70,"100-$15,"75,"100-$16,"80,"100-$17,"85,"100-$18,"90,"100-$19,"95,"100-$20)}')
 
 #cpu_icon=$(echo "<svg xmlns='http://www.w3.org/2000/svg' width='16px' height='16px' viewBox='0 0 100 100'> <g transform='translate(0,0)'> <path style='fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-opacity:1;stroke-width:2px;' d='$CPU_GRAPH' /> </g></svg>" | base64 -w 0) # graph style
 
 cpu_icon=$(echo "<svg xmlns='http://www.w3.org/2000/svg' width='28px' height='28px' viewBox='0 0 100 100'> <g transform='translate(0,0)'> <path style='fill:$chart_color;fill-opacity:1;fill-rule:evenodd;' d='M 0,100 V $CPU_GRAPH l 0,100' /> </g></svg>" | base64 -w 0) # fill style
+
+########### cpu graph end ############
 
 ########### cpu graph end ############
 
@@ -79,9 +110,9 @@ cpu_icon=$(echo "<svg xmlns='http://www.w3.org/2000/svg' width='28px' height='28
 echo "| image=$cpu_icon imageHeight=14 imageWidth=28" #remove imageWidth property if you use bar instead of graph
 
 echo "---"
-echo "<b>$CPU</b> CPU | image=$cpu_icon imageHeight=16 font=monospace size=10"
+echo "<b>$CPU</b> <b><span color='$cpu_temp_color'>$cpu_temp°C</span></b> | image=$cpu_icon imageHeight=16 font=monospace size=10"
 
-echo "$top| font=monospace size=10 iconName=utilities-system-monitor$symbolic  bash=gnome-system-monitor terminal=false"
+echo "$top| font=monospace size=10 iconName=utilities-terminal$symbolic  bash=gnome-system-monitor terminal=false"
 
 echo "---"
 
